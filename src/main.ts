@@ -76,47 +76,29 @@ const DEFAULT_SETTINGS: BvsSettings = {
     fileConfigs: {}
 };
 
+// toolbar.hide token → CSS class.
 const HIDE_TOKEN_TO_CLASS: Record<string, string> = {
     'search': 'bth-hide-search',
     'filter': 'bth-hide-filter',
     'sort': 'bth-hide-sort',
     'properties': 'bth-hide-properties',
-    'result-count': 'bth-hide-result-count',
     'group': 'bth-hide-group',
     'views': 'bth-hide-views',
+    'result-count': 'bth-hide-result-count',
 };
 
 const ALL_HIDE_CLASSES: string[] = [
-    'bth-hide-result-count',
     'bth-hide-search',
-    'bth-hide-properties',
     'bth-hide-filter',
     'bth-hide-sort',
+    'bth-hide-properties',
     'bth-hide-group',
     'bth-hide-views',
-];
-
-const ALL_LEGACY_HIDE_CLASSES: string[] = [
-    'bvs-hide-result-count',
-    'bvs-hide-search',
-    'bvs-hide-properties',
-    'bvs-hide-filter',
-    'bvs-hide-sort',
-    'bvs-hide-group',
-    'bvs-hide-views',
-    'bvs-custom-view-style',
+    'bth-hide-result-count',
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
-}
-
-function debounce<T extends (...args: unknown[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
-    let timeout: number | null = null;
-    return function (this: unknown, ...args: Parameters<T>) {
-        if (timeout !== null) window.clearTimeout(timeout);
-        timeout = window.setTimeout(() => func.apply(this, args), wait);
-    };
 }
 
 // ================== PLUGIN ==================
@@ -125,14 +107,13 @@ export default class BaseToolbarConfigPlugin extends Plugin {
     settings!: BvsSettings;
     private baseFileCache: Record<string, ParsedBaseFile> = {};
     observer!: MutationObserver;
-    debouncedProcessAllViews!: () => void;
 
     async onload() {
-        // 1. Get Obsidian's UI language code (e.g. "ru", "en", "zh").
+        // 1. Get Obsidian's UI language code.
         const obsidianLang = getLanguage();
-        // 2. ts-obsidian-i18n reads the language from localStorage — write it there.
+        // 2. ts-obsidian-i18n reads the language from localStorage.
         window.localStorage.setItem('language', obsidianLang);
-        // 3. Initialize i18n now that the correct language is in place.
+        // 3. Initialize i18n.
         initI18n(this.app);
 
         await this.loadSettings();
@@ -140,21 +121,20 @@ export default class BaseToolbarConfigPlugin extends Plugin {
 
         this.baseFileCache = {};
 
-        // Fallback for cases where the view appeared without a file-open event
-        // (e.g. session restore, late toolbar render for custom buttons, embeds).
-        this.debouncedProcessAllViews = debounce(() => { void this.processAllViews(); }, 250);
-        this.observer = new MutationObserver(() => this.debouncedProcessAllViews());
+        // Synchronous MutationObserver: reacts to .bases-toolbar insertion
+        // in the same microtask, before the browser paints.
+        this.observer = new MutationObserver((mutations) => this.onMutations(mutations));
         this.observer.observe(document.body, { childList: true, subtree: true });
 
         this.app.workspace.onLayoutReady(() => { void this.processAllViews(); });
 
-        // === IMMEDIATE processing: settings are applied synchronously on file-open ===
+        // Immediate processing on file-open (fast path).
         this.registerEvent(this.app.workspace.on('file-open', (file) => {
             if (!file || file.extension !== 'base') return;
             this.app.workspace.iterateAllLeaves((leaf) => {
                 const view: CustomBaseView = leaf.view;
                 if (view.file?.path === file.path) {
-                    void this.injectIntoView(view);
+                    this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
                 }
             });
         }));
@@ -162,7 +142,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
             const view: CustomBaseView | undefined = leaf?.view;
             if (view?.file?.extension === 'base') {
-                void this.injectIntoView(view);
+                this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
             }
         }));
 
@@ -200,22 +180,45 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         if (this.observer) this.observer.disconnect();
         document.querySelectorAll('.bth-view, .bvs-view').forEach(el => {
             el.classList.remove(
-                'bth-view', 'bvs-view',
-                ...ALL_HIDE_CLASSES,
-                ...ALL_LEGACY_HIDE_CLASSES
+                'bth-view', 'bvs-view', 'bvs-custom-view-style',
+                ...ALL_HIDE_CLASSES
             );
         });
         document.querySelectorAll('.my-base-btns-container').forEach(el => el.remove());
     }
 
+    // === Mutation handling: react synchronously to toolbar insertion ===
+
+    private onMutations(mutations: MutationRecord[]): void {
+        let toolbarInserted = false;
+
+        outer: for (const mutation of mutations) {
+            if (mutation.addedNodes.length === 0) continue;
+            for (const node of Array.from(mutation.addedNodes)) {
+                if (!(node instanceof HTMLElement)) continue;
+                if (node.classList.contains('bases-toolbar') || node.querySelector('.bases-toolbar')) {
+                    toolbarInserted = true;
+                    break outer;
+                }
+            }
+        }
+
+        if (!toolbarInserted) return;
+
+        // Process synchronously. Classes are added in this microtask,
+        // before the browser paints.
+        this.app.workspace.iterateAllLeaves((leaf) => {
+            const view: CustomBaseView = leaf.view;
+            if (view.file?.extension === 'base') {
+                this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
+            }
+        });
+    }
+
     async loadSettings() {
-        // loadData() is typed as Promise<any> — narrow to unknown first,
-        // then use a type guard to get a proper Partial<BvsSettings>.
         const raw: unknown = await this.loadData();
         this.settings = Object.assign({}, DEFAULT_SETTINGS, isRecord(raw) ? raw : {});
 
-        // Migration: fill in any missing fields from DEFAULT_FILE_CONFIG,
-        // so old data.json without newer toggles still works.
         for (const [path, cfg] of Object.entries(this.settings.fileConfigs)) {
             this.settings.fileConfigs[path] = Object.assign(
                 {},
@@ -277,7 +280,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
             const view: CustomBaseView = leaf.view;
             if (view.file?.extension === 'base') {
-                void this.injectIntoView(view);
+                this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
             }
         });
 
@@ -294,7 +297,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
             if (!filePath) continue;
 
             embed.classList.add('bth-view');
-            embed.classList.remove(...ALL_HIDE_CLASSES, ...ALL_LEGACY_HIDE_CLASSES);
+            embed.classList.remove(...ALL_HIDE_CLASSES, 'bvs-custom-view-style');
 
             const config = this.settings.fileConfigs[filePath];
             if (config) {
@@ -303,7 +306,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
             }
 
             const parsed = await this.parseBaseFile(filePath);
-            this.applyHideClasses(embed, parsed.hide);
+            this.hideTokensToClasses(embed, parsed.hide);
         }
     }
 
@@ -322,31 +325,22 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         return first ? first.path : null;
     }
 
-    private applyHideClasses(el: HTMLElement, hideTokens: string[]) {
-        // Only adds classes. Callers are responsible for removing them beforehand.
-        // This preserves the settings-based classes applied synchronously earlier.
-        for (const token of hideTokens) {
+    private applyConfigHideClasses(el: HTMLElement, config: FileConfig): void {
+        el.classList.toggle('bth-hide-search', config.hideSearch);
+        el.classList.toggle('bth-hide-filter', config.hideFilter);
+        el.classList.toggle('bth-hide-sort', config.hideSort);
+        el.classList.toggle('bth-hide-properties', config.hideProperties);
+        el.classList.toggle('bth-hide-group', config.hideGroup);
+        el.classList.toggle('bth-hide-views', config.hideViews);
+        el.classList.toggle('bth-hide-result-count', config.hideResultCount);
+    }
+
+    private hideTokensToClasses(el: HTMLElement, tokens: string[]): void {
+        // Only adds. Never removes. Preserves classes already set by settings.
+        for (const token of tokens) {
             const cls = HIDE_TOKEN_TO_CLASS[token];
             if (cls) el.classList.add(cls);
         }
-    }
-
-    private applyConfigHideClasses(el: HTMLElement, config: FileConfig) {
-        if (config.hideResultCount) el.classList.add('bth-hide-result-count');
-        if (config.hideSearch) el.classList.add('bth-hide-search');
-        if (config.hideProperties) el.classList.add('bth-hide-properties');
-        if (config.hideFilter) el.classList.add('bth-hide-filter');
-        if (config.hideSort) el.classList.add('bth-hide-sort');
-        if (config.hideGroup) el.classList.add('bth-hide-group');
-        if (config.hideViews) el.classList.add('bth-hide-views');
-
-        el.classList.toggle('bvs-hide-result-count', config.hideResultCount);
-        el.classList.toggle('bvs-hide-search', config.hideSearch);
-        el.classList.toggle('bvs-hide-properties', config.hideProperties);
-        el.classList.toggle('bvs-hide-filter', config.hideFilter);
-        el.classList.toggle('bvs-hide-sort', config.hideSort);
-        el.classList.toggle('bvs-hide-group', config.hideGroup);
-        el.classList.toggle('bvs-hide-views', config.hideViews);
     }
 
     async injectIntoView(view: CustomBaseView) {
@@ -356,9 +350,9 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         const config = this.settings.fileConfigs[filePath];
         const container = view.containerEl;
 
-        // === SYNC: applies in the same tick, no flash ===
+        // === SYNC: classes applied in the same tick, before paint ===
         container.classList.add('bvs-view', 'bth-view');
-        container.classList.remove(...ALL_HIDE_CLASSES, ...ALL_LEGACY_HIDE_CLASSES);
+        container.classList.remove(...ALL_HIDE_CLASSES, 'bvs-custom-view-style');
 
         if (config) {
             this.applyConfigHideClasses(container, config);
@@ -367,7 +361,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
 
         // === ASYNC: toolbar.hide from YAML (adds on top of settings) ===
         const parsed = await this.parseBaseFile(filePath);
-        this.applyHideClasses(container, parsed.hide);
+        this.hideTokensToClasses(container, parsed.hide);
 
         // === Custom view-switcher buttons ===
         const toolbar = container.querySelector('.bases-toolbar');
@@ -414,7 +408,6 @@ export default class BaseToolbarConfigPlugin extends Plugin {
             };
         });
 
-        // Move the container next to the first toolbar element.
         parent.insertBefore(btnContainer, firstElement.nextSibling);
     }
 
@@ -812,7 +805,6 @@ class BaseToolbarConfigSettingTab extends PluginSettingTab {
 
         const nameContainer = el.querySelector<HTMLElement>('.setting-item-name');
         if (nameContainer) {
-            // createSpan appends; prepend moves it to the front of nameContainer.
             const dragIcon = nameContainer.createSpan({ cls: 'bvs-drag-handle' });
             setIcon(dragIcon, 'grip-vertical');
             nameContainer.prepend(dragIcon);

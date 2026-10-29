@@ -1,45 +1,190 @@
 /* ==========================================================================
-   1. Toolbar hiding — exact Obsidian classes
+   1. Toolbar hiding — class-based, high specificity, no display override
+   ==========================================================================
+   Rules only ADD `display: none` when the container has a hide-class.
+   When not hiding, no display rule is applied at all — so no layout
+   changes, no scrollbars, no specificity battles with Obsidian's defaults.
    ========================================================================== */
 
-/* Hide result counter */
-:is(.bth-hide-result-count, .bvs-hide-result-count)
-    :is(.bases-toolbar-result-count, .bases-result-count) {
-    display: none !important;
+.workspace-leaf .bth-hide-search .bases-toolbar-search,
+.workspace-leaf .bth-hide-search .bases-toolbar-search-button,
+.bth-hide-search .bases-toolbar-search,
+.bth-hide-search .bases-toolbar-search-button {
+    display: none;
 }
 
-/* Hide search button */
-:is(.bth-hide-search, .bvs-hide-search)
-    :is(.bases-toolbar-search, .bases-toolbar-search-button) {
-    display: none !important;
+.workspace-leaf .bth-hide-filter .bases-toolbar-filter-menu,
+.bth-hide-filter .bases-toolbar-filter-menu {
+    display: none;
 }
 
-/* Hide filter button */
-:is(.bth-hide-filter, .bvs-hide-filter)
-    .bases-toolbar-filter-menu {
-    display: none !important;
+.workspace-leaf .bth-hide-sort .bases-toolbar-sort-menu,
+.bth-hide-sort .bases-toolbar-sort-menu {
+    display: none;
 }
 
-/* Hide sort button */
-:is(.bth-hide-sort, .bvs-hide-sort)
-    .bases-toolbar-sort-menu {
-    display: none !important;
+.workspace-leaf .bth-hide-properties .bases-toolbar-properties-menu,
+.bth-hide-properties .bases-toolbar-properties-menu {
+    display: none;
 }
 
-/* Hide properties button */
-:is(.bth-hide-properties, .bvs-hide-properties)
-    .bases-toolbar-properties-menu {
-    display: none !important;
+.workspace-leaf .bth-hide-group .bases-toolbar-group-menu,
+.bth-hide-group .bases-toolbar-group-menu {
+    display: none;
 }
 
-/* Hide group button */
-:is(.bth-hide-group, .bvs-hide-group)
-    .bases-toolbar-group-menu {
-    display: none !important;
+.workspace-leaf .bth-hide-views .bases-toolbar-views-menu,
+.bth-hide-views .bases-toolbar-views-menu {
+    display: none;
 }
 
-/* Hide views button */
-:is(.bth-hide-views, .bvs-hide-views)
-    .bases-toolbar-views-menu {
-    display: none !important;
+.workspace-leaf .bth-hide-result-count .bases-toolbar-result-count,
+.workspace-leaf .bth-hide-result-count .bases-result-count,
+.bth-hide-result-count .bases-toolbar-result-count,
+.bth-hide-result-count .bases-result-count {
+    display: none;
+}
+
+/* ==========================================================================
+   2. Custom view-switcher buttons
+   ========================================================================== */
+
+.my-base-btns-container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin: 0 4px;
+}
+
+.my-base-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.my-base-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.my-base-btn.bvs-text-mode {
+    padding: 4px 10px;
+}
+
+.my-base-btn.bvs-text-mode .bvs-btn-text {
+    display: inline-block;
+    font-size: var(--font-ui-small);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.my-base-btn:not(.bvs-text-mode) .bvs-btn-text {
+    display: none;
+}
+
+/* ==========================================================================
+   3. Custom view style
+   ========================================================================== */
+
+.bvs-custom-view-style .bases-toolbar,
+.bvs-custom-view-style .query-toolbar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+
+.bvs-custom-view-style .my-base-btns-container {
+    flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   4. Settings tab
+   ========================================================================== */
+
+.bvs-settings-tabs-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 8px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.bvs-settings-tab {
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+    transition: background 120ms ease, color 120ms ease;
+    user-select: none;
+}
+
+.bvs-settings-tab:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.bvs-settings-tab.is-active {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.bvs-settings-tab-add {
+    color: var(--text-accent);
+    font-weight: 500;
+}
+
+.bvs-settings-empty-state {
+    margin-top: 24px;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    border: 1px dashed var(--background-modifier-border);
+    border-radius: 8px;
+}
+
+.bvs-draggable-item {
+    cursor: grab;
+}
+
+.bvs-draggable-item.is-dragging {
+    opacity: 0.4;
+}
+
+.bvs-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 6px;
+    color: var(--text-faint);
+    cursor: grab;
+}
+
+.bvs-drag-handle svg {
+    width: 14px;
+    height: 14px;
+}
+
+.bvs-draggable-item.drag-over-top {
+    box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+
+.bvs-draggable-item.drag-over-bottom {
+    box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
+}
+
+/* ==========================================================================
+   5. Embedded Bases: overflow — scoped to embeds only
+   ==========================================================================
+   The previous version applied overflow-x: auto to ALL .bth-view toolbars,
+   which caused a scrollbar in standalone tabs when buttons were forced to a
+   different display. Now scoped to embedded Bases only, and only when the
+   embed itself is narrower than its content. */
+
+.internal-embed.bases-embed .bases-toolbar {
+    max-width: 100%;
+    overflow-x: auto;
 }
