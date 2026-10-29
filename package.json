@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-sample-plugin",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Plugin to configure which toolbar buttons are visible in Bases files and their embeds.",
 	"main": "main.js",
 	"type": "module",
