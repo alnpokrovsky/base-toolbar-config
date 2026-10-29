@@ -15,9 +15,10 @@ import {
     TAbstractFile,
     TFile,
     View,
-    WorkspaceLeaf
+    WorkspaceLeaf,
+    getLanguage
 } from 'obsidian';
-import { t } from './i18n';
+import { initI18n, t } from './i18n';
 
 // ================== INTERFACES ==================
 
@@ -38,11 +39,18 @@ export interface FileConfig {
     hideProperties: boolean;
     hideFilter: boolean;
     hideSort: boolean;
+    hideGroup: boolean;
+    hideViews: boolean;
     enableCustomViewStyle: boolean;
 }
 
 export interface BvsSettings {
     fileConfigs: Record<string, FileConfig>;
+}
+
+interface ParsedBaseFile {
+    views: string[];
+    hide: string[];
 }
 
 type CustomBaseView = View & { file?: TFile };
@@ -59,12 +67,45 @@ const DEFAULT_FILE_CONFIG: FileConfig = {
     hideProperties: false,
     hideFilter: false,
     hideSort: false,
+    hideGroup: false,
+    hideViews: false,
     enableCustomViewStyle: false
 };
 
 const DEFAULT_SETTINGS: BvsSettings = {
     fileConfigs: {}
 };
+
+const HIDE_TOKEN_TO_CLASS: Record<string, string> = {
+    'search': 'bth-hide-search',
+    'filter': 'bth-hide-filter',
+    'sort': 'bth-hide-sort',
+    'properties': 'bth-hide-properties',
+    'result-count': 'bth-hide-result-count',
+    'group': 'bth-hide-group',
+    'views': 'bth-hide-views',
+};
+
+const ALL_HIDE_CLASSES: string[] = [
+    'bth-hide-result-count',
+    'bth-hide-search',
+    'bth-hide-properties',
+    'bth-hide-filter',
+    'bth-hide-sort',
+    'bth-hide-group',
+    'bth-hide-views',
+];
+
+const ALL_LEGACY_HIDE_CLASSES: string[] = [
+    'bvs-hide-result-count',
+    'bvs-hide-search',
+    'bvs-hide-properties',
+    'bvs-hide-filter',
+    'bvs-hide-sort',
+    'bvs-hide-group',
+    'bvs-hide-views',
+    'bvs-custom-view-style',
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -80,29 +121,56 @@ function debounce<T extends (...args: unknown[]) => void>(func: T, wait: number)
 
 // ================== PLUGIN ==================
 
-export default class BasesToolbarCleanerPlugin extends Plugin {
+export default class BaseToolbarConfigPlugin extends Plugin {
     settings!: BvsSettings;
-    viewNameCache: Record<string, string[]> = {};
+    private baseFileCache: Record<string, ParsedBaseFile> = {};
     observer!: MutationObserver;
     debouncedProcessAllViews!: () => void;
 
     async onload() {
+        // 1. Get Obsidian's UI language code (e.g. "ru", "en", "zh").
+        const obsidianLang = getLanguage();
+        // 2. ts-obsidian-i18n reads the language from localStorage — write it there.
+        window.localStorage.setItem('language', obsidianLang);
+        // 3. Initialize i18n now that the correct language is in place.
+        initI18n(this.app);
+
         await this.loadSettings();
-        this.addSettingTab(new BasesToolbarCleanerSettingTab(this.app, this));
+        this.addSettingTab(new BaseToolbarConfigSettingTab(this.app, this));
 
-        this.viewNameCache = {};
+        this.baseFileCache = {};
 
-        this.debouncedProcessAllViews = debounce(this.processAllViews.bind(this), 250);
+        this.debouncedProcessAllViews = debounce(() => { void this.processAllViews(); }, 250);
         this.observer = new MutationObserver(() => this.debouncedProcessAllViews());
         this.observer.observe(document.body, { childList: true, subtree: true });
 
-        this.app.workspace.onLayoutReady(() => this.processAllViews());
+        this.app.workspace.onLayoutReady(() => { void this.processAllViews(); });
 
         this.registerEvent(this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
-            if (file instanceof TFile && file.extension === 'base' && this.settings.fileConfigs[oldPath]) {
-                this.settings.fileConfigs[file.path] = this.settings.fileConfigs[oldPath];
-                delete this.settings.fileConfigs[oldPath];
-                void this.saveSettings();
+            if (file instanceof TFile && file.extension === 'base') {
+                delete this.baseFileCache[oldPath];
+                delete this.baseFileCache[file.path];
+
+                if (this.settings.fileConfigs[oldPath]) {
+                    this.settings.fileConfigs[file.path] = this.settings.fileConfigs[oldPath];
+                    delete this.settings.fileConfigs[oldPath];
+                    void this.saveSettings();
+                } else {
+                    void this.processAllViews();
+                }
+            }
+        }));
+
+        this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => {
+            if (file instanceof TFile && file.extension === 'base') {
+                delete this.baseFileCache[file.path];
+                void this.processAllViews();
+            }
+        }));
+
+        this.registerEvent(this.app.vault.on('delete', (file: TAbstractFile) => {
+            if (file instanceof TFile && file.extension === 'base') {
+                delete this.baseFileCache[file.path];
             }
         }));
     }
@@ -112,11 +180,8 @@ export default class BasesToolbarCleanerPlugin extends Plugin {
         document.querySelectorAll('.bth-view, .bvs-view').forEach(el => {
             el.classList.remove(
                 'bth-view', 'bvs-view',
-                'bth-hide-result-count', 'bth-hide-search',
-                'bth-hide-properties', 'bth-hide-filter', 'bth-hide-sort',
-                'bvs-hide-result-count', 'bvs-hide-search',
-                'bvs-hide-properties', 'bvs-hide-filter', 'bvs-hide-sort',
-                'bvs-custom-view-style'
+                ...ALL_HIDE_CLASSES,
+                ...ALL_LEGACY_HIDE_CLASSES
             );
         });
         document.querySelectorAll('.my-base-btns-container').forEach(el => el.remove());
@@ -125,83 +190,140 @@ export default class BasesToolbarCleanerPlugin extends Plugin {
     async loadSettings() {
         const stored = (await this.loadData()) as Partial<BvsSettings> | null;
         this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+
+        // Migration: fill in any missing fields from DEFAULT_FILE_CONFIG,
+        // so old data.json without newer toggles (e.g. hideViews) still works.
+        for (const [path, cfg] of Object.entries(this.settings.fileConfigs)) {
+            this.settings.fileConfigs[path] = Object.assign(
+                {},
+                DEFAULT_FILE_CONFIG,
+                cfg,
+                { buttons: Array.isArray(cfg.buttons) ? cfg.buttons : [] }
+            );
+        }
     }
 
     async saveSettings() {
         await this.saveData(this.settings);
         document.querySelectorAll('.my-base-btns-container').forEach(el => el.remove());
-        this.processAllViews();
+        this.baseFileCache = {};
+        void this.processAllViews();
     }
 
-    async getAvailableViewNamesForFile(filePath: string): Promise<string[]> {
-        if (this.viewNameCache[filePath]) return this.viewNameCache[filePath];
+    async parseBaseFile(filePath: string): Promise<ParsedBaseFile> {
+        const cached = this.baseFileCache[filePath];
+        if (cached) return cached;
 
         const file = this.app.vault.getAbstractFileByPath(filePath);
-        if (!file || !(file instanceof TFile)) return [];
+        if (!(file instanceof TFile)) {
+            return { views: [], hide: [] };
+        }
 
-        const names = new Set<string>();
+        const result: ParsedBaseFile = { views: [], hide: [] };
         try {
             const content = await this.app.vault.cachedRead(file);
-            const parsed = parseYaml(content) as unknown;
-            if (isRecord(parsed) && Array.isArray(parsed.views)) {
-                for (const v of parsed.views) {
-                    if (isRecord(v) && typeof v.name === 'string') {
-                        names.add(v.name);
+            const parsed: unknown = parseYaml(content);
+            if (isRecord(parsed)) {
+                if (Array.isArray(parsed.views)) {
+                    for (const v of parsed.views) {
+                        if (isRecord(v) && typeof v.name === 'string') {
+                            result.views.push(v.name);
+                        }
+                    }
+                }
+                if (isRecord(parsed.toolbar) && Array.isArray(parsed.toolbar.hide)) {
+                    for (const item of parsed.toolbar.hide) {
+                        if (typeof item === 'string') result.hide.push(item);
                     }
                 }
             }
         } catch (e) {
-            console.error("Failed to parse YAML", e);
+            console.error(`Failed to parse ${filePath}`, e);
         }
 
-        this.viewNameCache[filePath] = Array.from(names);
-        return this.viewNameCache[filePath];
+        this.baseFileCache[filePath] = result;
+        return result;
     }
 
-    processAllViews() {
+    async getAvailableViewNamesForFile(filePath: string): Promise<string[]> {
+        const parsed = await this.parseBaseFile(filePath);
+        return parsed.views;
+    }
+
+    async processAllViews() {
         this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
             const view = leaf.view as CustomBaseView;
             if (view && view.file && view.file.extension === 'base') {
-                this.injectIntoView(view);
+                void this.injectIntoView(view);
             }
         });
 
-        document
-            .querySelectorAll('.internal-embed[src$=".base"], .cm-embed-block')
-            .forEach(el => {
-                const htmlEl = el as HTMLElement;
-                if (htmlEl.querySelector('.bases-toolbar, .bases-view')) {
-                    this.applyToolbarClasses(htmlEl);
-                }
-            });
+        await this.processEmbeddedBases();
     }
 
-    private applyToolbarClasses(container: HTMLElement) {
-        container.classList.add('bth-view');
-        container.classList.remove(
-            'bth-hide-result-count', 'bth-hide-search', 'bth-hide-properties',
-            'bth-hide-filter', 'bth-hide-sort'
-        );
+    private async processEmbeddedBases() {
+        const embeds = document.querySelectorAll<HTMLElement>('.internal-embed.bases-embed');
+        for (const embed of Array.from(embeds)) {
+            const src = embed.getAttribute('src');
+            if (!src) continue;
 
-        const src = container.getAttribute('src');
-        const config = src ? this.settings.fileConfigs[src] : undefined;
+            const filePath = this.resolveEmbedPath(src);
+            if (!filePath) continue;
 
-        const s = config || {
-            hideResultCount: true,
-            hideSearch: false,
-            hideProperties: false,
-            hideFilter: false,
-            hideSort: false,
-        };
+            const parsed = await this.parseBaseFile(filePath);
+            this.applyHideClasses(embed, parsed.hide);
 
-        container.classList.toggle('bth-hide-result-count', s.hideResultCount);
-        container.classList.toggle('bth-hide-search', s.hideSearch);
-        container.classList.toggle('bth-hide-properties', s.hideProperties);
-        container.classList.toggle('bth-hide-filter', s.hideFilter);
-        container.classList.toggle('bth-hide-sort', s.hideSort);
+            const config = this.settings.fileConfigs[filePath];
+            if (config) {
+                this.applyConfigHideClasses(embed, config);
+                embed.classList.toggle('bvs-custom-view-style', config.enableCustomViewStyle);
+            }
+        }
     }
 
-    injectIntoView(view: CustomBaseView) {
+    private resolveEmbedPath(src: string): string | null {
+        const decoded = decodeURIComponent(src);
+        const withoutAnchor = decoded.split('#')[0] ?? decoded;
+        const clean = withoutAnchor.split('|')[0] ?? withoutAnchor;
+
+        const direct = this.app.vault.getAbstractFileByPath(clean);
+        if (direct instanceof TFile && direct.extension === 'base') return direct.path;
+
+        const baseName = clean.split('/').pop();
+        if (!baseName) return null;
+        const candidates = this.app.vault.getFiles().filter(f => f.extension === 'base' && f.name === baseName);
+        const first = candidates[0];
+        return first ? first.path : null;
+    }
+
+    private applyHideClasses(el: HTMLElement, hideTokens: string[]) {
+        el.classList.add('bth-view');
+        el.classList.remove(...ALL_HIDE_CLASSES);
+        for (const token of hideTokens) {
+            const cls = HIDE_TOKEN_TO_CLASS[token];
+            if (cls) el.classList.add(cls);
+        }
+    }
+
+    private applyConfigHideClasses(el: HTMLElement, config: FileConfig) {
+        if (config.hideResultCount) el.classList.add('bth-hide-result-count');
+        if (config.hideSearch) el.classList.add('bth-hide-search');
+        if (config.hideProperties) el.classList.add('bth-hide-properties');
+        if (config.hideFilter) el.classList.add('bth-hide-filter');
+        if (config.hideSort) el.classList.add('bth-hide-sort');
+        if (config.hideGroup) el.classList.add('bth-hide-group');
+        if (config.hideViews) el.classList.add('bth-hide-views');
+
+        el.classList.toggle('bvs-hide-result-count', config.hideResultCount);
+        el.classList.toggle('bvs-hide-search', config.hideSearch);
+        el.classList.toggle('bvs-hide-properties', config.hideProperties);
+        el.classList.toggle('bvs-hide-filter', config.hideFilter);
+        el.classList.toggle('bvs-hide-sort', config.hideSort);
+        el.classList.toggle('bvs-hide-group', config.hideGroup);
+        el.classList.toggle('bvs-hide-views', config.hideViews);
+    }
+
+    async injectIntoView(view: CustomBaseView) {
         if (!view.file) return;
 
         const filePath = view.file.path;
@@ -209,27 +331,15 @@ export default class BasesToolbarCleanerPlugin extends Plugin {
         const container = view.containerEl;
 
         container.classList.add('bvs-view');
-        container.classList.remove(
-            'bvs-hide-result-count', 'bvs-hide-search', 'bvs-hide-properties',
-            'bvs-hide-filter', 'bvs-hide-sort', 'bvs-custom-view-style',
-            'bth-hide-result-count', 'bth-hide-search', 'bth-hide-properties',
-            'bth-hide-filter', 'bth-hide-sort'
-        );
+        container.classList.remove(...ALL_HIDE_CLASSES, ...ALL_LEGACY_HIDE_CLASSES);
+
+        const parsed = await this.parseBaseFile(filePath);
+        this.applyHideClasses(container, parsed.hide);
 
         if (config) {
-            container.classList.toggle('bth-hide-result-count', config.hideResultCount);
-            container.classList.toggle('bth-hide-search', config.hideSearch);
-            container.classList.toggle('bth-hide-properties', config.hideProperties);
-            container.classList.toggle('bth-hide-filter', config.hideFilter);
-            container.classList.toggle('bth-hide-sort', config.hideSort);
+            this.applyConfigHideClasses(container, config);
+            container.classList.toggle('bvs-custom-view-style', config.enableCustomViewStyle);
         }
-
-        container.classList.toggle('bvs-hide-result-count', config?.hideResultCount ?? false);
-        container.classList.toggle('bvs-hide-search', config?.hideSearch ?? false);
-        container.classList.toggle('bvs-hide-properties', config?.hideProperties ?? false);
-        container.classList.toggle('bvs-hide-filter', config?.hideFilter ?? false);
-        container.classList.toggle('bvs-hide-sort', config?.hideSort ?? false);
-        container.classList.toggle('bvs-custom-view-style', config?.enableCustomViewStyle ?? false);
 
         const toolbar = container.querySelector('.bases-toolbar');
         if (!toolbar) return;
@@ -385,12 +495,12 @@ class IconSuggestModal extends FuzzySuggestModal<string> {
 
 // ================== SETTINGS UI ==================
 
-class BasesToolbarCleanerSettingTab extends PluginSettingTab {
-    plugin: BasesToolbarCleanerPlugin;
+class BaseToolbarConfigSettingTab extends PluginSettingTab {
+    plugin: BaseToolbarConfigPlugin;
     currentTab: string | null;
     draggedIndex: number | null;
 
-    constructor(app: App, plugin: BasesToolbarCleanerPlugin) {
+    constructor(app: App, plugin: BaseToolbarConfigPlugin) {
         super(app, plugin);
         this.plugin = plugin;
         this.currentTab = null;
@@ -419,7 +529,6 @@ class BasesToolbarCleanerSettingTab extends PluginSettingTab {
 
         items.push({ name: t("settings.title") });
 
-        // File tabs strip (custom render row)
         items.push({
             name: '',
             render: (setting) => {
@@ -474,7 +583,6 @@ class BasesToolbarCleanerSettingTab extends PluginSettingTab {
 
         const tabName = this.currentTab.split('/').pop() || this.currentTab;
 
-        // ---- Interface group ----
         items.push({
             type: 'group',
             heading: t("interface.title", { name: tabName }),
@@ -485,10 +593,11 @@ class BasesToolbarCleanerSettingTab extends PluginSettingTab {
                 this.toggleDef(t("interface.hideProperties"), 'hideProperties', null, config),
                 this.toggleDef(t("interface.hideFilter"), 'hideFilter', null, config),
                 this.toggleDef(t("interface.hideSort"), 'hideSort', null, config),
+                this.toggleDef(t("interface.hideGroup"), 'hideGroup', null, config),
+                this.toggleDef(t("interface.hideViews"), 'hideViews', null, config),
             ]
         });
 
-        // ---- Default button group ----
         const defaultItems: SettingGroupItem[] = [
             this.toggleDef(t("defaultButton.enable"), 'enableDefault', null, config, true),
         ];
@@ -535,7 +644,6 @@ class BasesToolbarCleanerSettingTab extends PluginSettingTab {
             items: defaultItems
         });
 
-        // ---- Custom buttons group ----
         const customItems: SettingGroupItem[] = [
             {
                 name: t("customButtons.addNew"),
@@ -569,7 +677,6 @@ class BasesToolbarCleanerSettingTab extends PluginSettingTab {
             items: customItems
         });
 
-        // ---- Danger zone ----
         items.push({
             type: 'group',
             heading: t("dangerZone.title"),
@@ -597,8 +704,6 @@ class BasesToolbarCleanerSettingTab extends PluginSettingTab {
 
         return items;
     }
-
-    // ---- Helpers that produce SettingGroupItem ----
 
     private toggleDef(
         name: string,

@@ -1,92 +1,163 @@
-# Obsidian Sample Plugin
+# Base Toolbar Config
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+**English** | [Русский](README.ru.md)
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+Configure which toolbar buttons are visible in Obsidian [Bases](https://help.obsidian.md/bases) — both in standalone `.base` files and in embedded bases inside notes. Add custom view-switcher buttons, hide what you don't use, and keep the UI clean.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+## Features
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and outputs a Notice on click.
-- Registers a global interval which logs 'setInterval' to the console.
+- **Per-file toolbar configuration** — decide which buttons each `.base` file shows, from the plugin settings or directly from the file's YAML.
+- **Embed support** — the same rules apply to `![[file.base]]` embeds inside Markdown notes.
+- **Custom view-switcher buttons** — pin views you switch between often as toolbar buttons with icons or labels.
+- **Default button** — set a single "home" button that jumps to a specific view.
+- **Drag-and-drop reorder** of custom buttons.
+- **Multilingual UI** — English, Russian, Chinese (follows Obsidian's language).
 
-## First time developing plugins?
+## Installation
 
-Quick starting guide for new plugin devs:
+### From the community plugins list
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `src/main.ts` to `main.js`.
-- Make changes to `src/main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+> Not yet published. This section will be updated once the plugin is accepted into the Obsidian community catalogue.
 
-## Releasing new releases
+### Manual installation
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](../../releases).
+2. Create the folder `<your-vault>/.obsidian/plugins/base-toolbar-config/`.
+3. Copy the three files into that folder.
+4. Restart Obsidian and enable the plugin in **Settings → Community plugins**.
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## Usage
 
-## Adding your plugin to the community plugin list
+### Hiding toolbar buttons via settings
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+1. Open **Settings → Base Toolbar Config**.
+2. Click **+ Add Base** and pick a `.base` file.
+3. Use the toggles under **Interface** to hide individual buttons for this file:
+   - Result counter (`X results`)
+   - Search
+   - Properties
+   - Filter
+   - Sort
+   - Group
+   - Views
 
-## How to use
+### Hiding toolbar buttons via `.base` YAML
 
-- Clone this repo.
-- Make sure your NodeJS is at least v18 (`node --version`).
-- `npm i` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+The plugin also reads a `toolbar.hide` block from the `.base` file itself. This is useful when you want the configuration to travel with the file (for example, when sharing it with others).
 
-## Manually installing the plugin
+```yaml
+toolbar:
+  hide:
+    - search
+    - filter
+    - sort
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code.
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-	"fundingUrl": "https://buymeacoffee.com"
-}
+views:
+  - type: table
+    name: "Main"
 ```
 
-If you have multiple URLs, you can also do:
+Both mechanisms work as a **union**: a button is hidden if it's listed in `toolbar.hide` **or** its toggle is enabled in the plugin settings. Unknown tokens are silently ignored.
 
-```json
-{
-	"fundingUrl": {
-		"Buy Me a Coffee": "https://buymeacoffee.com",
-		"GitHub Sponsor": "https://github.com/sponsors",
-		"Patreon": "https://www.patreon.com/"
-	}
-}
+#### Supported tokens
+
+| Token          | Hides                      |
+| -------------- | -------------------------- |
+| `result-count` | The "X results" counter    |
+| `search`       | The search button          |
+| `properties`   | The properties menu        |
+| `filter`       | The filter menu            |
+| `sort`         | The sort menu              |
+| `group`        | The group menu             |
+| `views`        | The view switcher menu     |
+
+### Embeds
+
+The same `toolbar.hide` rules apply to bases embedded inside notes:
+
+```markdown
+![[projects.base]]
 ```
 
-## API Documentation
+The plugin resolves the embed's `src` attribute to an actual `.base` file (including `folder/file.base` paths, `#anchor` suffixes and `|alias` forms) and applies the file's configuration to the embed.
 
-See https://docs.obsidian.md
+> **Note:** Bases created as inline ```` ```base ```` code blocks are **not** affected — they aren't tied to a specific `.base` file, so there is no configuration to read.
+
+### Custom view-switcher buttons
+
+You can pin any view from a `.base` file as a toolbar button:
+
+1. In **Settings → Base Toolbar Config**, pick a `.base` file.
+2. Under **Custom Buttons**, click **+ Add**.
+3. Choose an icon, bind a view and pick the display mode:
+   - **Icon view** — compact, shows only the icon.
+   - **Text view** — icon + view name, useful in wide panels.
+4. Drag rows to change the button order.
+
+A **Default Button** can also be enabled, which jumps to a chosen view in one click.
+
+### Custom view style
+
+Enable **Custom view menu style** under **Interface** to make the toolbar wrap gracefully when the panel is narrow. This is useful for embeds with very limited width.
+
+## Styling in themes
+
+All UI elements use standard Obsidian CSS variables (`--background-modifier-hover`, `--interactive-accent`, `--text-normal`, etc.), so they adapt to light/dark themes and community themes automatically.
+
+If you want to override the plugin's own styles, use the following classes:
+
+- `.my-base-btns-container` — wrapper for injected buttons
+- `.my-base-btn` — a single custom button
+- `.bvs-text-mode` — applied when the button shows text
+- `.bth-hide-<token>` — applied to the container when a button should be hidden (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`)
+- `.bvs-hide-<token>` — legacy aliases kept for backwards compatibility
+
+## Requirements
+
+- Obsidian **1.13.0** or newer (the plugin relies on `getSettingDefinitions()` and `setDestructive()`, both introduced in 1.13).
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Watch mode (rebuilds main.js on save)
+npm run dev
+
+# Production build
+npm run build
+
+# Lint
+npm run lint
+```
+
+The built `main.js` must be copied into `<your-vault>/.obsidian/plugins/base-toolbar-config/` along with `manifest.json` and `styles.css`.
+
+### Project structure
+
+```
+src/
+├── main.ts                 # Plugin entry: settings UI, toolbar logic, i18n wiring
+└── i18n/
+    ├── keys.ts             # All translatable keys + module augmentation
+    ├── index.ts            # I18N service init + t() helper
+    └── locales/
+        ├── en.ts
+        ├── ru.ts
+        └── zh.ts
+styles.css                  # Toolbar hiding + custom UI styles
+manifest.json
+```
+
+### Adding a new toolbar button to hide
+
+1. Add the token in `HIDE_TOKEN_TO_CLASS` and `ALL_HIDE_CLASSES` in `src/main.ts`.
+2. Add `hideXxx` to `FileConfig`, `DEFAULT_FILE_CONFIG` and `applyConfigHideClasses`.
+3. Add a toggle in `getSettingDefinitions()`.
+4. Add the key to `src/i18n/keys.ts` and all locale files.
+5. Add a CSS rule using the exact class from Obsidian (inspect the button in DevTools to confirm).
+
+## License
+
+MIT

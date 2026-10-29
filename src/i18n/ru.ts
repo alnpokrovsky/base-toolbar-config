@@ -3,9 +3,9 @@ import type { I18NResource } from "ts-obsidian-i18n";
 import type { I18NKeyMap } from "./keys";
 
 export const ru: I18NResource<I18NKeyMap> = {
-  "settings.title": "Настройки Base View Switcher",
-  "tabs.addDatabase": "+ Добавить базу",
-  "tabs.emptyState": 'Нажмите "+ Добавить базу" выше, чтобы начать.',
+  "settings.title": "Base Toolbar Config",
+  "tabs.addDatabase": "+ Добавить .base",
+  "tabs.emptyState": 'Нажмите "+ Добавить .base" выше, чтобы начать.',
 
   "interface.title": "⚙️ Интерфейс ({name})",
   "interface.enableCustomViewStyle.name": "Включить кастомный стиль меню видов",
@@ -15,6 +15,8 @@ export const ru: I18NResource<I18NKeyMap> = {
   "interface.hideProperties": 'Скрыть кнопку "Свойства"',
   "interface.hideFilter": 'Скрыть кнопку "Фильтр"',
   "interface.hideSort": 'Скрыть кнопку "Сортировка"',
+  "interface.hideGroup": 'Скрыть кнопку "Группа"',
+  "interface.hideViews": 'Скрыть кнопку "Представления"',
 
   "defaultButton.title": "🏠 Кнопка по умолчанию",
   "defaultButton.enable": "Включить кнопку по умолчанию",
@@ -34,7 +36,7 @@ export const ru: I18NResource<I18NKeyMap> = {
   "customButtons.showAsText": "Текущий: вид текстом (широкая панель)",
 
   "dangerZone.title": "Опасная зона",
-  "dangerZone.desc": "Удалить конфигурацию видов для текущей базы.",
+  "dangerZone.desc": "Удалить конфигурацию видов для текущего .base файла.",
   "dangerZone.deleteButton": "Удалить эту конфигурацию",
   "dangerZone.confirmMessage": 'Вы уверены, что хотите удалить все настройки для "{path}"?',
   "dangerZone.confirmButton": "Удалить",

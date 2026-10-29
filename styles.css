@@ -1,190 +1,45 @@
 /* ==========================================================================
-   1. Toolbar hiding (used by main.ts — class names come from the plugin)
-   ==========================================================================
-   NOTE: selectors like [class*="filter"] are intentionally broad so they
-   survive minor Obsidian renames. Replace them with exact class names from
-   DevTools once you have confirmed them for your Obsidian version. */
-
-/* Hide the result counter ("X results") */
-.bth-hide-result-count .bases-toolbar .bases-result-count,
-.bth-hide-result-count .bases-toolbar [class*="result-count"] {
-    display: none !important;
-}
-
-/* Hide the search button */
-.bth-hide-search .bases-toolbar [aria-label*="earch"],
-.bth-hide-search .bases-toolbar [class*="search"] {
-    display: none !important;
-}
-
-/* Hide the properties button */
-.bth-hide-properties .bases-toolbar [aria-label*="ropert"],
-.bth-hide-properties .bases-toolbar [class*="propert"] {
-    display: none !important;
-}
-
-/* Hide the filter button */
-.bth-hide-filter .bases-toolbar [aria-label*="ilter"],
-.bth-hide-filter .bases-toolbar [class*="filter"] {
-    display: none !important;
-}
-
-/* Hide the sort button */
-.bth-hide-sort .bases-toolbar [aria-label*="ort"],
-.bth-hide-sort .bases-toolbar [class*="sort"] {
-    display: none !important;
-}
-
-/* ==========================================================================
-   2. Custom view-switcher buttons injected into the Bases toolbar
+   1. Toolbar hiding — exact Obsidian classes
    ========================================================================== */
 
-.my-base-btns-container {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin: 0 4px;
+/* Hide result counter */
+:is(.bth-hide-result-count, .bvs-hide-result-count)
+    :is(.bases-toolbar-result-count, .bases-result-count) {
+    display: none !important;
 }
 
-.my-base-btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 120ms ease, color 120ms ease;
+/* Hide search button */
+:is(.bth-hide-search, .bvs-hide-search)
+    :is(.bases-toolbar-search, .bases-toolbar-search-button) {
+    display: none !important;
 }
 
-.my-base-btn:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
+/* Hide filter button */
+:is(.bth-hide-filter, .bvs-hide-filter)
+    .bases-toolbar-filter-menu {
+    display: none !important;
 }
 
-/* Text-mode buttons: icon + label side by side */
-.my-base-btn.bvs-text-mode {
-    padding: 4px 10px;
+/* Hide sort button */
+:is(.bth-hide-sort, .bvs-hide-sort)
+    .bases-toolbar-sort-menu {
+    display: none !important;
 }
 
-.my-base-btn.bvs-text-mode .bvs-btn-text {
-    display: inline-block;
-    font-size: var(--font-ui-small);
-    line-height: 1;
-    white-space: nowrap;
+/* Hide properties button */
+:is(.bth-hide-properties, .bvs-hide-properties)
+    .bases-toolbar-properties-menu {
+    display: none !important;
 }
 
-/* Icon-mode buttons: label is hidden */
-.my-base-btn:not(.bvs-text-mode) .bvs-btn-text {
-    display: none;
+/* Hide group button */
+:is(.bth-hide-group, .bvs-hide-group)
+    .bases-toolbar-group-menu {
+    display: none !important;
 }
 
-/* ==========================================================================
-   3. Custom view style (enableCustomViewStyle toggle)
-   ==========================================================================
-   Prevents toolbar buttons from being squashed in very narrow panels. */
-
-.bvs-custom-view-style .bases-toolbar {
-    flex-wrap: wrap;
-    row-gap: 4px;
-}
-
-.bvs-custom-view-style .my-base-btns-container {
-    flex-wrap: wrap;
-}
-
-/* ==========================================================================
-   4. Settings tab: file tabs strip
-   ========================================================================== */
-
-.bvs-settings-tabs-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin: 8px 0 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.bvs-settings-tab {
-    padding: 4px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: var(--font-ui-small);
-    transition: background 120ms ease, color 120ms ease;
-    user-select: none;
-}
-
-.bvs-settings-tab:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
-}
-
-.bvs-settings-tab.is-active {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-}
-
-.bvs-settings-tab-add {
-    color: var(--text-accent);
-    font-weight: 500;
-}
-
-/* ==========================================================================
-   5. Settings tab: empty state
-   ========================================================================== */
-
-.bvs-settings-empty-state {
-    margin-top: 24px;
-    padding: 24px;
-    text-align: center;
-    color: var(--text-muted);
-    border: 1px dashed var(--background-modifier-border);
-    border-radius: 8px;
-}
-
-/* ==========================================================================
-   6. Settings tab: draggable button rows
-   ========================================================================== */
-
-.bvs-draggable-item {
-    cursor: grab;
-}
-
-.bvs-draggable-item.is-dragging {
-    opacity: 0.4;
-}
-
-.bvs-drag-handle {
-    display: inline-flex;
-    align-items: center;
-    margin-right: 6px;
-    color: var(--text-faint);
-    cursor: grab;
-}
-
-.bvs-drag-handle svg {
-    width: 14px;
-    height: 14px;
-}
-
-/* Visual drop indicator above / below the hovered row */
-.bvs-draggable-item.drag-over-top {
-    box-shadow: inset 0 2px 0 0 var(--interactive-accent);
-}
-
-.bvs-draggable-item.drag-over-bottom {
-    box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
-}
-
-/* ==========================================================================
-   7. Embedded Bases (inside Markdown notes)
-   ==========================================================================
-   ![[file.base]] and ```base blocks are wrapped by Obsidian in containers
-   that don't always inherit the full toolbar layout — nudge them here. */
-
-.bth-view .bases-toolbar {
-    /* Ensure the embed toolbar doesn't overflow the note width */
-    max-width: 100%;
-    overflow-x: auto;
+/* Hide views button */
+:is(.bth-hide-views, .bvs-hide-views)
+    .bases-toolbar-views-menu {
+    display: none !important;
 }

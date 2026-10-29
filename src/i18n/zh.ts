@@ -3,7 +3,7 @@ import type { I18NResource } from "ts-obsidian-i18n";
 import type { I18NKeyMap } from "./keys";
 
 export const zh: I18NResource<I18NKeyMap> = {
-  "settings.title": "Base 视图切换器设置",
+  "settings.title": "Base Toolbar Config",
   "tabs.addDatabase": "+ 添加数据库",
   "tabs.emptyState": '请点击上方 "+ 添加数据库" 开始配置。',
 
@@ -15,6 +15,8 @@ export const zh: I18NResource<I18NKeyMap> = {
   "interface.hideProperties": '隐藏 "属性" 按钮',
   "interface.hideFilter": '隐藏 "筛选" 按钮',
   "interface.hideSort": '隐藏 "排序" 按钮',
+  "interface.hideGroup": '隐藏 "分组" 按钮',
+  "interface.hideViews": '隐藏 "视图" 按钮',
 
   "defaultButton.title": "🏠 默认按钮",
   "defaultButton.enable": "启用默认按钮",

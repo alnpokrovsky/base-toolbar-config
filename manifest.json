@@ -3,7 +3,7 @@
 	"name": "Base Toolbar Config",
 	"version": "1.0.0",
 	"minAppVersion": "1.13.0",
-	"description": "Hide unwanted toolbar buttons in Obsidian Bases files and their embeds.",
+	"description": "Configure which toolbar buttons are visible in Obsidian Bases files and their embeds.",
 	"author": "alnpokrov",
 	"authorUrl": "https://obsidian.md",
 	"fundingUrl": "https://obsidian.md/pricing",
