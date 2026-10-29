@@ -189,7 +189,8 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         outer: for (const mutation of mutations) {
             if (mutation.addedNodes.length === 0) continue;
             for (const node of Array.from(mutation.addedNodes)) {
-                if (!(node instanceof HTMLElement)) continue;
+                // `instanceOf` is Obsidian's cross-window safe variant of `instanceof`.
+                if (!node.instanceOf(HTMLElement)) continue;
                 if (node.classList.contains('bases-toolbar') || node.querySelector('.bases-toolbar')) {
                     toolbarInserted = true;
                     break outer;
@@ -380,8 +381,11 @@ export default class BaseToolbarConfigPlugin extends Plugin {
 
         const firstElement = toolbar.firstElementChild;
         if (!firstElement) return;
-        const parent = firstElement.parentNode;
-        if (!(parent instanceof HTMLElement)) return;
+
+        // `parentElement` already returns HTMLElement | null — no instanceof needed,
+        // and it's inherently cross-window safe.
+        const parent = firstElement.parentElement;
+        if (!parent) return;
 
         const btnContainer = parent.createDiv({
             cls: 'my-base-btns-container',
