@@ -177,14 +177,22 @@
 }
 
 /* ==========================================================================
-   5. Embedded Bases: overflow — scoped to embeds only
+   5. Embedded Bases: responsive toolbar
    ==========================================================================
-   The previous version applied overflow-x: auto to ALL .bth-view toolbars,
-   which caused a scrollbar in standalone tabs when buttons were forced to a
-   different display. Now scoped to embedded Bases only, and only when the
-   embed itself is narrower than its content. */
+   Embeds are usually narrower than the note width, so the toolbar must
+   wrap instead of overflowing. No `overflow-x: auto` — that creates a
+   permanent scrollbar track even when contents fit. */
 
 .internal-embed.bases-embed .bases-toolbar {
+    min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+
+/* When the toolbar wraps, the custom-button strip should wrap too,
+   otherwise it forces its own line without wrapping. */
+.internal-embed.bases-embed .my-base-btns-container {
+    flex-wrap: wrap;
+    margin: 0;
 }
