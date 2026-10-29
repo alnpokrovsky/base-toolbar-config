@@ -1,36 +1,44 @@
 // src/i18n/index.ts
-import { App } from "obsidian";
-import { I18NService } from "ts-obsidian-i18n";
-import type { I18NResourcesByLang } from "ts-obsidian-i18n";
-import type { I18NKeyMap } from "./keys";
-import { en } from "./en";
-import { ru } from "./ru";
-import { zh } from "./zh";
+import { getLanguage } from 'obsidian';
+import type { I18NKey, Resource } from './keys';
+import { en } from './en';
+import { ru } from './ru';
+import { zh } from './zh';
 
-const RESOURCES: I18NResourcesByLang<I18NKeyMap> = { en, ru, zh };
+const RESOURCES: Record<string, Resource> = { en, ru, zh };
+const FALLBACK_LANG = 'en';
 
-let translate: ((key: keyof I18NKeyMap) => string) | null = null;
-
-// Инициализация должна вызываться из onload() плагина,
-// чтобы передать app и дать библиотеке определить язык Obsidian.
-export function initI18n(app: App): void {
-  translate = I18NService.init({
-    resources: RESOURCES,
-    fallbackLanguage: "en",
-    app,
-  });
+// Normalize a raw language code to a known resource key.
+// "zh-CN" → "zh", "ru-RU" → "ru", unknown → fallback.
+function normalizeLang(raw: string): string {
+    const base = raw.split('-')[0] ?? raw;
+    const lower = base.toLowerCase();
+    if (RESOURCES[lower]) return lower;
+    if (RESOURCES[raw]) return raw;
+    return FALLBACK_LANG;
 }
 
-export function t(key: keyof I18NKeyMap, vars?: Record<string, string | number>): string {
-  if (!translate) {
-    // Если t() вызван до initI18n — возвращаем ключ, чтобы не падать.
-    return key;
-  }
-  let result = translate(key);
-  if (vars) {
-    for (const [name, value] of Object.entries(vars)) {
-      result = result.split(`{${name}}`).join(String(value));
+// Resolve the active language once at module load.
+// getLanguage() is the official Obsidian API and returns the user's
+// configured interface language.
+let activeLang = normalizeLang(getLanguage());
+
+export function t(key: I18NKey, vars?: Record<string, string | number>): string {
+    const dict = RESOURCES[activeLang] ?? RESOURCES[FALLBACK_LANG]!;
+    let result = dict[key] ?? RESOURCES[FALLBACK_LANG]![key] ?? key;
+
+    if (vars) {
+        for (const [name, value] of Object.entries(vars)) {
+            result = result.split(`{${name}}`).join(String(value));
+        }
     }
-  }
-  return result;
+    return result;
+}
+
+/**
+ * Optional: re-detect the language if the user changes it at runtime.
+ * Currently not wired to any event; kept for future use.
+ */
+export function refreshLanguage(): void {
+    activeLang = normalizeLang(getLanguage());
 }

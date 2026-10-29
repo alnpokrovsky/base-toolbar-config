@@ -1,11 +1,10 @@
 // src/i18n/locales/zh.ts
-import type { I18NResource } from "ts-obsidian-i18n";
-import type { I18NKeyMap } from "./keys";
+import type { Resource } from "./keys";
 
-export const zh: I18NResource<I18NKeyMap> = {
+export const zh: Resource = {
   "settings.title": "Base Toolbar Config",
-  "tabs.addDatabase": "+ 添加数据库",
-  "tabs.emptyState": '请点击上方 "+ 添加数据库" 开始配置。',
+  "tabs.addDatabase": "+ 添加 .base",
+  "tabs.emptyState": '请点击上方 "+ 添加 .base" 开始配置。',
 
   "interface.title": "⚙️ 界面美化 ({name})",
   "interface.enableCustomViewStyle.name": "启用自定义视图菜单样式",
@@ -36,13 +35,13 @@ export const zh: I18NResource<I18NKeyMap> = {
   "customButtons.showAsText": "当前: 用视图名称展示 (宽屏)",
 
   "dangerZone.title": "危险操作",
-  "dangerZone.desc": "删除当前数据库的专属视图配置。",
+  "dangerZone.desc": "删除当前 .base 文件的专属视图配置。",
   "dangerZone.deleteButton": "删除此配置",
   "dangerZone.confirmMessage": '确定要删除 "{path}" 的所有自定义配置吗？',
   "dangerZone.confirmButton": "删除",
   "dangerZone.cancelButton": "取消",
 
-  "modals.fileSuggestPlaceholder": "选择需要配置的 Base 数据库文件...",
+  "modals.fileSuggestPlaceholder": "选择需要配置的 .base 文件...",
   "modals.viewSuggestPlaceholder": "选择或搜索视图...",
   "modals.viewSuggestEmpty": "未找到视图，请检查文件是否为空",
   "modals.iconSuggestPlaceholder": "搜索图标...",

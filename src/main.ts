@@ -15,10 +15,9 @@ import {
     TAbstractFile,
     TFile,
     View,
-    WorkspaceLeaf,
-    getLanguage
+    WorkspaceLeaf
 } from 'obsidian';
-import { initI18n, t } from './i18n';
+import { t } from './i18n';
 
 // ================== INTERFACES ==================
 
@@ -76,7 +75,7 @@ const DEFAULT_SETTINGS: BvsSettings = {
     fileConfigs: {}
 };
 
-// toolbar.hide token → CSS class.
+// Mapping from `.base` toolbar.hide token → CSS class.
 const HIDE_TOKEN_TO_CLASS: Record<string, string> = {
     'search': 'bth-hide-search',
     'filter': 'bth-hide-filter',
@@ -109,13 +108,8 @@ export default class BaseToolbarConfigPlugin extends Plugin {
     observer!: MutationObserver;
 
     async onload() {
-        // 1. Get Obsidian's UI language code.
-        const obsidianLang = getLanguage();
-        // 2. ts-obsidian-i18n reads the language from localStorage.
-        window.localStorage.setItem('language', obsidianLang);
-        // 3. Initialize i18n.
-        initI18n(this.app);
-
+        // i18n is initialized at module load via getLanguage().
+        // No localStorage hacks, no separate init call needed.
         await this.loadSettings();
         this.addSettingTab(new BaseToolbarConfigSettingTab(this.app, this));
 
@@ -219,6 +213,8 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         const raw: unknown = await this.loadData();
         this.settings = Object.assign({}, DEFAULT_SETTINGS, isRecord(raw) ? raw : {});
 
+        // Migration: fill in any missing fields from DEFAULT_FILE_CONFIG,
+        // so old data.json without newer toggles still works.
         for (const [path, cfg] of Object.entries(this.settings.fileConfigs)) {
             this.settings.fileConfigs[path] = Object.assign(
                 {},
@@ -310,19 +306,23 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         }
     }
 
+    // Resolve an embed's `src` to an actual .base file path.
+    // Avoids full-vault enumeration: uses vault lookup + metadataCache link resolution.
     private resolveEmbedPath(src: string): string | null {
         const decoded = decodeURIComponent(src);
         const withoutAnchor = decoded.split('#')[0] ?? decoded;
         const clean = withoutAnchor.split('|')[0] ?? withoutAnchor;
 
+        // Exact path lookup — cheapest, no enumeration.
         const direct = this.app.vault.getAbstractFileByPath(clean);
         if (direct instanceof TFile && direct.extension === 'base') return direct.path;
 
-        const baseName = clean.split('/').pop();
-        if (!baseName) return null;
-        const candidates = this.app.vault.getFiles().filter(f => f.extension === 'base' && f.name === baseName);
-        const first = candidates[0];
-        return first ? first.path : null;
+        // Fallback: metadata cache resolves relative paths using Obsidian's rules.
+        const sourcePath = this.app.workspace.getActiveFile()?.path ?? '';
+        const resolved = this.app.metadataCache.getFirstLinkpathDest(clean, sourcePath);
+        if (resolved instanceof TFile && resolved.extension === 'base') return resolved.path;
+
+        return null;
     }
 
     private applyConfigHideClasses(el: HTMLElement, config: FileConfig): void {

@@ -1,6 +1,6 @@
 // src/i18n/keys.ts
-import "ts-obsidian-i18n";
-
+// Registry of all translatable keys. TypeScript will enforce that
+// every call to t() uses one of these keys.
 export const I18NKeys = {
   "settings.title": true,
   "tabs.addDatabase": true,
@@ -49,8 +49,5 @@ export const I18NKeys = {
   "notices.switchFailed": true,
 } as const;
 
-export type I18NKeyMap = typeof I18NKeys;
-
-declare module "ts-obsidian-i18n" {
-  type I18NKeyMap = typeof I18NKeys;
-}
+export type I18NKey = keyof typeof I18NKeys;
+export type Resource = Record<I18NKey, string>;

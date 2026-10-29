@@ -1,8 +1,7 @@
 // src/i18n/locales/ru.ts
-import type { I18NResource } from "ts-obsidian-i18n";
-import type { I18NKeyMap } from "./keys";
+import type { Resource } from "./keys";
 
-export const ru: I18NResource<I18NKeyMap> = {
+export const ru: Resource = {
   "settings.title": "Base Toolbar Config",
   "tabs.addDatabase": "+ Добавить .base",
   "tabs.emptyState": 'Нажмите "+ Добавить .base" выше, чтобы начать.',
