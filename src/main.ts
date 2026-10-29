@@ -140,19 +140,40 @@ export default class BaseToolbarConfigPlugin extends Plugin {
 
         this.baseFileCache = {};
 
+        // Fallback for cases where the view appeared without a file-open event
+        // (e.g. session restore, late toolbar render for custom buttons, embeds).
         this.debouncedProcessAllViews = debounce(() => { void this.processAllViews(); }, 250);
         this.observer = new MutationObserver(() => this.debouncedProcessAllViews());
         this.observer.observe(document.body, { childList: true, subtree: true });
 
         this.app.workspace.onLayoutReady(() => { void this.processAllViews(); });
 
+        // === IMMEDIATE processing: settings are applied synchronously on file-open ===
+        this.registerEvent(this.app.workspace.on('file-open', (file) => {
+            if (!file || file.extension !== 'base') return;
+            this.app.workspace.iterateAllLeaves((leaf) => {
+                const view: CustomBaseView = leaf.view;
+                if (view.file?.path === file.path) {
+                    void this.injectIntoView(view);
+                }
+            });
+        }));
+
+        this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
+            const view: CustomBaseView | undefined = leaf?.view;
+            if (view?.file?.extension === 'base') {
+                void this.injectIntoView(view);
+            }
+        }));
+
         this.registerEvent(this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
             if (file instanceof TFile && file.extension === 'base') {
                 delete this.baseFileCache[oldPath];
                 delete this.baseFileCache[file.path];
 
-                if (this.settings.fileConfigs[oldPath]) {
-                    this.settings.fileConfigs[file.path] = this.settings.fileConfigs[oldPath];
+                const oldConfig = this.settings.fileConfigs[oldPath];
+                if (oldConfig) {
+                    this.settings.fileConfigs[file.path] = oldConfig;
                     delete this.settings.fileConfigs[oldPath];
                     void this.saveSettings();
                 } else {
@@ -188,11 +209,13 @@ export default class BaseToolbarConfigPlugin extends Plugin {
     }
 
     async loadSettings() {
-        const stored = (await this.loadData()) as Partial<BvsSettings> | null;
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+        // loadData() is typed as Promise<any> — narrow to unknown first,
+        // then use a type guard to get a proper Partial<BvsSettings>.
+        const raw: unknown = await this.loadData();
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, isRecord(raw) ? raw : {});
 
         // Migration: fill in any missing fields from DEFAULT_FILE_CONFIG,
-        // so old data.json without newer toggles (e.g. hideViews) still works.
+        // so old data.json without newer toggles still works.
         for (const [path, cfg] of Object.entries(this.settings.fileConfigs)) {
             this.settings.fileConfigs[path] = Object.assign(
                 {},
@@ -252,8 +275,8 @@ export default class BaseToolbarConfigPlugin extends Plugin {
 
     async processAllViews() {
         this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
-            const view = leaf.view as CustomBaseView;
-            if (view && view.file && view.file.extension === 'base') {
+            const view: CustomBaseView = leaf.view;
+            if (view.file?.extension === 'base') {
                 void this.injectIntoView(view);
             }
         });
@@ -270,14 +293,17 @@ export default class BaseToolbarConfigPlugin extends Plugin {
             const filePath = this.resolveEmbedPath(src);
             if (!filePath) continue;
 
-            const parsed = await this.parseBaseFile(filePath);
-            this.applyHideClasses(embed, parsed.hide);
+            embed.classList.add('bth-view');
+            embed.classList.remove(...ALL_HIDE_CLASSES, ...ALL_LEGACY_HIDE_CLASSES);
 
             const config = this.settings.fileConfigs[filePath];
             if (config) {
                 this.applyConfigHideClasses(embed, config);
                 embed.classList.toggle('bvs-custom-view-style', config.enableCustomViewStyle);
             }
+
+            const parsed = await this.parseBaseFile(filePath);
+            this.applyHideClasses(embed, parsed.hide);
         }
     }
 
@@ -297,8 +323,8 @@ export default class BaseToolbarConfigPlugin extends Plugin {
     }
 
     private applyHideClasses(el: HTMLElement, hideTokens: string[]) {
-        el.classList.add('bth-view');
-        el.classList.remove(...ALL_HIDE_CLASSES);
+        // Only adds classes. Callers are responsible for removing them beforehand.
+        // This preserves the settings-based classes applied synchronously earlier.
         for (const token of hideTokens) {
             const cls = HIDE_TOKEN_TO_CLASS[token];
             if (cls) el.classList.add(cls);
@@ -330,17 +356,20 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         const config = this.settings.fileConfigs[filePath];
         const container = view.containerEl;
 
-        container.classList.add('bvs-view');
+        // === SYNC: applies in the same tick, no flash ===
+        container.classList.add('bvs-view', 'bth-view');
         container.classList.remove(...ALL_HIDE_CLASSES, ...ALL_LEGACY_HIDE_CLASSES);
-
-        const parsed = await this.parseBaseFile(filePath);
-        this.applyHideClasses(container, parsed.hide);
 
         if (config) {
             this.applyConfigHideClasses(container, config);
             container.classList.toggle('bvs-custom-view-style', config.enableCustomViewStyle);
         }
 
+        // === ASYNC: toolbar.hide from YAML (adds on top of settings) ===
+        const parsed = await this.parseBaseFile(filePath);
+        this.applyHideClasses(container, parsed.hide);
+
+        // === Custom view-switcher buttons ===
         const toolbar = container.querySelector('.bases-toolbar');
         if (!toolbar) return;
 
@@ -356,11 +385,14 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         if (!config) return;
 
         const firstElement = toolbar.firstElementChild;
-        if (!firstElement || !firstElement.parentNode) return;
+        if (!firstElement) return;
+        const parent = firstElement.parentNode;
+        if (!(parent instanceof HTMLElement)) return;
 
-        const btnContainer = document.createElement('div');
-        btnContainer.className = 'my-base-btns-container';
-        btnContainer.setAttribute('data-bvs-path', filePath);
+        const btnContainer = parent.createDiv({
+            cls: 'my-base-btns-container',
+            attr: { 'data-bvs-path': filePath }
+        });
 
         let renderList: ButtonConfig[] = [...config.buttons];
         if (config.enableDefault) {
@@ -370,29 +402,20 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         }
 
         renderList.forEach(btnConfig => {
-            const btn = document.createElement('div');
-            btn.className = 'clickable-icon my-base-btn';
-
-            if (btnConfig.showText) {
-                btn.classList.add('bvs-text-mode');
-            }
-
+            const btn = btnContainer.createDiv({ cls: 'clickable-icon my-base-btn' });
+            if (btnConfig.showText) btn.classList.add('bvs-text-mode');
             btn.setAttribute('aria-label', `${btnConfig.viewName}`);
             setIcon(btn, btnConfig.icon || 'layout-grid');
-
-            const textSpan = document.createElement('span');
-            textSpan.className = 'bvs-btn-text';
-            textSpan.innerText = btnConfig.viewName;
-            btn.appendChild(textSpan);
+            btn.createSpan({ cls: 'bvs-btn-text', text: btnConfig.viewName });
 
             btn.onclick = (e: MouseEvent) => {
                 e.stopPropagation();
                 void this.switchView(view, btnConfig.viewName);
             };
-            btnContainer.appendChild(btn);
         });
 
-        firstElement.parentNode.insertBefore(btnContainer, firstElement.nextSibling);
+        // Move the container next to the first toolbar element.
+        parent.insertBefore(btnContainer, firstElement.nextSibling);
     }
 
     async switchView(targetView: CustomBaseView, targetViewName: string) {
@@ -518,7 +541,7 @@ class BaseToolbarConfigSettingTab extends PluginSettingTab {
 
         this.update();
 
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
             if (scrollContainer) scrollContainer.scrollTop = currentScroll;
             this.containerEl.setCssProps({ minHeight: '' });
         });
@@ -787,10 +810,10 @@ class BaseToolbarConfigSettingTab extends PluginSettingTab {
         el.draggable = true;
         el.classList.add('bvs-draggable-item');
 
-        const nameContainer = el.querySelector('.setting-item-name');
+        const nameContainer = el.querySelector<HTMLElement>('.setting-item-name');
         if (nameContainer) {
-            const dragIcon = document.createElement('span');
-            dragIcon.className = 'bvs-drag-handle';
+            // createSpan appends; prepend moves it to the front of nameContainer.
+            const dragIcon = nameContainer.createSpan({ cls: 'bvs-drag-handle' });
             setIcon(dragIcon, 'grip-vertical');
             nameContainer.prepend(dragIcon);
         }
@@ -800,7 +823,7 @@ class BaseToolbarConfigSettingTab extends PluginSettingTab {
             if (e.dataTransfer) {
                 e.dataTransfer.effectAllowed = 'move';
             }
-            setTimeout(() => el.classList.add('is-dragging'), 0);
+            window.setTimeout(() => el.classList.add('is-dragging'), 0);
         });
 
         el.addEventListener('dragover', (e: DragEvent) => {
