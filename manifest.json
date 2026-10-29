@@ -1,7 +1,7 @@
 {
 	"id": "base-toolbar-config",
 	"name": "Base Toolbar Config",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"minAppVersion": "1.13.0",
 	"description": "Configure which toolbar buttons are visible in Bases files and their embeds.",
 	"author": "alnpokrov",
