@@ -4,6 +4,9 @@
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"type": "module",
+	"allowScripts": {
+		"esbuild": false
+	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
@@ -17,11 +20,14 @@
 		"@types/node": "^22.15.17",
 		"esbuild": "0.25.5",
 		"eslint": "^9.39.4",
-		"eslint-plugin-obsidianmd": "^0.4.0",
+		"eslint-plugin-obsidianmd": "^0.1.8",
 		"globals": "^17.6.0",
 		"jiti": "^2.6.1",
 		"obsidian": "latest",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.59.1"
+	},
+	"dependencies": {
+		"ts-obsidian-i18n": "^1.0.2"
 	}
 }
