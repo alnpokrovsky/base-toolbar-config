@@ -75,7 +75,6 @@ const DEFAULT_SETTINGS: BvsSettings = {
     fileConfigs: {}
 };
 
-// Mapping from `.base` toolbar.hide token → CSS class.
 const HIDE_TOKEN_TO_CLASS: Record<string, string> = {
     'search': 'bth-hide-search',
     'filter': 'bth-hide-filter',
@@ -108,36 +107,29 @@ export default class BaseToolbarConfigPlugin extends Plugin {
     observer!: MutationObserver;
 
     async onload() {
-        // i18n is initialized at module load via getLanguage().
-        // No localStorage hacks, no separate init call needed.
         await this.loadSettings();
         this.addSettingTab(new BaseToolbarConfigSettingTab(this.app, this));
 
         this.baseFileCache = {};
 
-        // Synchronous MutationObserver: reacts to .bases-toolbar insertion
-        // in the same microtask, before the browser paints.
+        // MutationObserver reacts to `.bases-toolbar` insertions. This is what
+        // triggers immediate reprocessing of BOTH leaf views and embedded bases
+        // when Obsidian (or an integration plugin like TaskNotes) renders a
+        // toolbar after the initial layout pass.
         this.observer = new MutationObserver((mutations) => this.onMutations(mutations));
         this.observer.observe(document.body, { childList: true, subtree: true });
 
         this.app.workspace.onLayoutReady(() => { void this.processAllViews(); });
 
-        // Immediate processing on file-open (fast path).
-        this.registerEvent(this.app.workspace.on('file-open', (file) => {
-            if (!file || file.extension !== 'base') return;
-            this.app.workspace.iterateAllLeaves((leaf) => {
-                const view: CustomBaseView = leaf.view;
-                if (view.file?.path === file.path) {
-                    this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
-                }
-            });
+        // Unconditional reprocessing on file-open and leaf change — covers
+        // opening notes with embeds that were already rendered, switching tabs,
+        // and picking up embeds inserted by column/table plugins.
+        this.registerEvent(this.app.workspace.on('file-open', () => {
+            void this.processAllViews();
         }));
 
-        this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
-            const view: CustomBaseView | undefined = leaf?.view;
-            if (view?.file?.extension === 'base') {
-                this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
-            }
+        this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+            void this.processAllViews();
         }));
 
         this.registerEvent(this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
@@ -181,7 +173,11 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         document.querySelectorAll('.my-base-btns-container').forEach(el => el.remove());
     }
 
-    // === Mutation handling: react synchronously to toolbar insertion ===
+    // ================== MUTATION HANDLING ==================
+    // Reacts to any `.bases-toolbar` insertion. This is the CRITICAL path
+    // for embeds inside %%cols%% tables or TaskNotes integrations: the embed
+    // (and its toolbar) is rendered asynchronously AFTER onLayoutReady /
+    // file-open, and only the mutation observer catches it in time.
 
     private onMutations(mutations: MutationRecord[]): void {
         let toolbarInserted = false;
@@ -189,7 +185,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         outer: for (const mutation of mutations) {
             if (mutation.addedNodes.length === 0) continue;
             for (const node of Array.from(mutation.addedNodes)) {
-                // `instanceOf` is Obsidian's cross-window safe variant of `instanceof`.
+                // Cross-window safe instanceof replacement per obsidianmd lint.
                 if (!node.instanceOf(HTMLElement)) continue;
                 if (node.classList.contains('bases-toolbar') || node.querySelector('.bases-toolbar')) {
                     toolbarInserted = true;
@@ -200,22 +196,19 @@ export default class BaseToolbarConfigPlugin extends Plugin {
 
         if (!toolbarInserted) return;
 
-        // Process synchronously. Classes are added in this microtask,
-        // before the browser paints.
-        this.app.workspace.iterateAllLeaves((leaf) => {
-            const view: CustomBaseView = leaf.view;
-            if (view.file?.extension === 'base') {
-                this.injectIntoView(view).catch(e => console.error('injectIntoView failed:', e));
-            }
-        });
+        // Process BOTH leaf views and embedded bases. Earlier versions
+        // only re-injected custom buttons into leaf views here, which is
+        // why embeds (especially inside column/table plugins) never
+        // received their hide-classes after the initial layout pass.
+        void this.processAllViews();
     }
+
+    // ================== SETTINGS I/O ==================
 
     async loadSettings() {
         const raw: unknown = await this.loadData();
         this.settings = Object.assign({}, DEFAULT_SETTINGS, isRecord(raw) ? raw : {});
 
-        // Migration: fill in any missing fields from DEFAULT_FILE_CONFIG,
-        // so old data.json without newer toggles still works.
         for (const [path, cfg] of Object.entries(this.settings.fileConfigs)) {
             this.settings.fileConfigs[path] = Object.assign(
                 {},
@@ -232,6 +225,8 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         this.baseFileCache = {};
         void this.processAllViews();
     }
+
+    // ================== .base YAML PARSING ==================
 
     async parseBaseFile(filePath: string): Promise<ParsedBaseFile> {
         const cached = this.baseFileCache[filePath];
@@ -273,7 +268,10 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         return parsed.views;
     }
 
+    // ================== PROCESSING ==================
+
     async processAllViews() {
+        // 1) Leaf views — fire and forget; each is safe to run concurrently.
         this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
             const view: CustomBaseView = leaf.view;
             if (view.file?.extension === 'base') {
@@ -281,18 +279,34 @@ export default class BaseToolbarConfigPlugin extends Plugin {
             }
         });
 
+        // 2) Embedded bases — awaited so we can sequence after YAML reads.
         await this.processEmbeddedBases();
     }
 
     private async processEmbeddedBases() {
-        const embeds = document.querySelectorAll<HTMLElement>('.internal-embed.bases-embed');
-        for (const embed of Array.from(embeds)) {
-            const src = embed.getAttribute('src');
+        // `[src*=".base"]` matches even when src contains an anchor
+        // (`today-planer.base#Рабочие задачи`) or alias (`file.base|text`).
+        // `.bases-embed` catches canonical embeds whose src was rewritten.
+        const candidates = document.querySelectorAll<HTMLElement>(
+            '.internal-embed.bases-embed, .internal-embed[src*=".base"]'
+        );
+
+        for (const embed of Array.from(candidates)) {
+            // Skip embeds nested inside another embed we already process.
+            if (embed.parentElement?.closest('.internal-embed.bases-embed')) continue;
+
+            const src =
+                embed.getAttribute('src') ??
+                embed.getAttribute('data-path') ??
+                embed.getAttribute('data-href');
+
             if (!src) continue;
 
             const filePath = this.resolveEmbedPath(src);
             if (!filePath) continue;
 
+            // Synchronous part: apply config-based hide-classes in the same
+            // tick. This is what makes toggle-driven hiding instant.
             embed.classList.add('bth-view');
             embed.classList.remove(...ALL_HIDE_CLASSES, 'bvs-custom-view-style');
 
@@ -302,29 +316,36 @@ export default class BaseToolbarConfigPlugin extends Plugin {
                 embed.classList.toggle('bvs-custom-view-style', config.enableCustomViewStyle);
             }
 
+            // Async part: YAML-driven `toolbar.hide` (cached after first read).
             const parsed = await this.parseBaseFile(filePath);
             this.hideTokensToClasses(embed, parsed.hide);
         }
     }
 
     // Resolve an embed's `src` to an actual .base file path.
-    // Avoids full-vault enumeration: uses vault lookup + metadataCache link resolution.
+    // Handles anchors (`file.base#view`), aliases (`file.base|text`),
+    // URL-encoding, and relative/basename-only paths.
     private resolveEmbedPath(src: string): string | null {
-        const decoded = decodeURIComponent(src);
-        const withoutAnchor = decoded.split('#')[0] ?? decoded;
-        const clean = withoutAnchor.split('|')[0] ?? withoutAnchor;
+        let clean = src.split('#')[0] ?? src;
+        clean = clean.split('|')[0] ?? clean;
+        clean = decodeURIComponent(clean);
+        clean = clean.replace(/^vault:\/\//, '').replace(/^app:\/\//, '');
 
-        // Exact path lookup — cheapest, no enumeration.
+        // 1. Exact vault path — fastest, no enumeration.
         const direct = this.app.vault.getAbstractFileByPath(clean);
         if (direct instanceof TFile && direct.extension === 'base') return direct.path;
 
-        // Fallback: metadata cache resolves relative paths using Obsidian's rules.
+        // 2. Obsidian's link resolver — handles basename-only paths and
+        //    relative paths from the active file. Uses the metadata cache,
+        //    not a full vault scan.
         const sourcePath = this.app.workspace.getActiveFile()?.path ?? '';
         const resolved = this.app.metadataCache.getFirstLinkpathDest(clean, sourcePath);
         if (resolved instanceof TFile && resolved.extension === 'base') return resolved.path;
 
         return null;
     }
+
+    // ================== CLASS APPLICATION ==================
 
     private applyConfigHideClasses(el: HTMLElement, config: FileConfig): void {
         el.classList.toggle('bth-hide-search', config.hideSearch);
@@ -337,12 +358,14 @@ export default class BaseToolbarConfigPlugin extends Plugin {
     }
 
     private hideTokensToClasses(el: HTMLElement, tokens: string[]): void {
-        // Only adds. Never removes. Preserves classes already set by settings.
+        // Only adds. Never removes. Preserves classes set by settings above.
         for (const token of tokens) {
             const cls = HIDE_TOKEN_TO_CLASS[token];
             if (cls) el.classList.add(cls);
         }
     }
+
+    // ================== LEAF VIEW PROCESSING ==================
 
     async injectIntoView(view: CustomBaseView) {
         if (!view.file) return;
@@ -382,8 +405,7 @@ export default class BaseToolbarConfigPlugin extends Plugin {
         const firstElement = toolbar.firstElementChild;
         if (!firstElement) return;
 
-        // `parentElement` already returns HTMLElement | null — no instanceof needed,
-        // and it's inherently cross-window safe.
+        // `parentElement` is typed HTMLElement | null — no runtime check needed.
         const parent = firstElement.parentElement;
         if (!parent) return;
 
