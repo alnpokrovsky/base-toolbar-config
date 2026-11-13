@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeSettings, DEFAULT_FILE_CONFIG, DEFAULT_SETTINGS } from '../../src/utils/settings';
+import { mergeSettings, DEFAULT_SETTINGS } from '../../src/utils/settings';
 
 describe('mergeSettings', () => {
 	it('returns defaults for empty/raw undefined input', () => {
@@ -31,7 +31,7 @@ describe('mergeSettings', () => {
 	it('normalizes non-array buttons to []', () => {
 		const result = mergeSettings({
 			fileConfigs: {
-				'projects.base': { buttons: null as unknown as never[] },
+				'projects.base': { buttons: null as unknown as unknown[] },
 			},
 		});
 		expect(result.fileConfigs['projects.base'].buttons).toEqual([]);
@@ -39,7 +39,7 @@ describe('mergeSettings', () => {
 
 	it('does not mutate the input', () => {
 		const raw = { fileConfigs: { 'projects.base': { hideSearch: true } } };
-		const copy = JSON.parse(JSON.stringify(raw));
+		const copy = JSON.parse(JSON.stringify(raw)) as typeof raw;
 		mergeSettings(raw);
 		expect(raw).toEqual(copy);
 	});

@@ -1,6 +1,8 @@
+/* eslint-disable */
 // __mocks__/obsidian.ts
 // Mock of the Obsidian API for unit testing. Only the surface used by
 // src/main.ts is modeled; everything else returns sensible defaults.
+// (Intentional `any` usage — this mocks a third-party API surface.)
 
 // ---- Core classes ----
 

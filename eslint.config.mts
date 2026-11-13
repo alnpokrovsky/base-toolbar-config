@@ -21,7 +21,15 @@ export default defineConfig(
 			},
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: ['eslint.config.mts', 'manifest.json'],
+					allowDefaultProject: [
+			'eslint.config.mts',
+			'manifest.json',
+			'test/__mocks__/obsidian.ts',
+			'test/i18n/index.test.ts',
+			'test/utils/i18n.test.ts',
+			'test/utils/path.test.ts',
+			'test/utils/settings.test.ts',
+		],
 				},
 				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.json'],
