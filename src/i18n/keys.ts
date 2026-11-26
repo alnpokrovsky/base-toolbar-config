@@ -17,6 +17,7 @@ export const I18NKeys = {
   "interface.hideGroup": true,
   "interface.hideViews": true,
   "interface.hideShortcuts": true,
+  "interface.hideMore": true,
 
   "defaultButton.title": true,
   "defaultButton.enable": true,

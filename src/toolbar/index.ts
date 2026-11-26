@@ -25,6 +25,7 @@ export function applyConfigHideClasses(el: HTMLElement, config: FileConfig): voi
     el.classList.toggle('bth-hide-views', config.hideViews);
     el.classList.toggle('bth-hide-result-count', config.hideResultCount);
     el.classList.toggle('bth-hide-shortcuts', config.hideShortcuts);
+    el.classList.toggle('bth-hide-more', config.hideMore);
 }
 
 export function hideTokensToClasses(el: HTMLElement, tokens: string[]): void {

@@ -71,6 +71,7 @@ Both mechanisms work as a **union**: a button is hidden if it's listed in `toolb
 | `group`        | The group menu             |
 | `views`        | The view switcher menu     |
 | `shortcuts`    | The "Keyboard shortcuts" help button (TaskNotes) |
+| `more`         | The "More actions" overflow button (TaskNotes) |
 
 ### Embeds
 
@@ -110,7 +111,7 @@ If you want to override the plugin's own styles, use the following classes:
 - `.my-base-btns-container` — wrapper for injected buttons
 - `.my-base-btn` — a single custom button
 - `.bvs-text-mode` — applied when the button shows text
-- `.bth-hide-<token>` — applied to the container when a button should be hidden (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`, `shortcuts`)
+- `.bth-hide-<token>` — applied to the container when a button should be hidden (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`, `shortcuts`, `more`)
 - `.bvs-hide-<token>` — legacy aliases kept for backwards compatibility
 
 ## Requirements

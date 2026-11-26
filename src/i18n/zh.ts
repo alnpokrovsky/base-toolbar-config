@@ -17,6 +17,7 @@ export const zh: Resource = {
   "interface.hideGroup": '隐藏 "分组" 按钮',
   "interface.hideViews": '隐藏 "视图" 按钮',
   "interface.hideShortcuts": '隐藏 "键盘快捷键" 按钮',
+  "interface.hideMore": '隐藏 "更多操作" 按钮',
 
   "defaultButton.title": "🏠 默认按钮",
   "defaultButton.enable": "启用默认按钮",

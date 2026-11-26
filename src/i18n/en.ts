@@ -17,6 +17,7 @@ export const en: Resource = {
   "interface.hideGroup": 'Hide "Group" button',
   "interface.hideViews": 'Hide "Views" button',
   "interface.hideShortcuts": 'Hide "Keyboard shortcuts" button',
+  "interface.hideMore": 'Hide "More actions" button',
 
   "defaultButton.title": "🏠 Default Button",
   "defaultButton.enable": "Enable default button",
