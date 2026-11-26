@@ -45,6 +45,11 @@
     display: none;
 }
 
+.workspace-leaf .bth-hide-shortcuts .tn-shortcut-help,
+.bth-hide-shortcuts .tn-shortcut-help {
+    display: none;
+}
+
 /* ==========================================================================
    2. Custom view-switcher buttons
    ========================================================================== */

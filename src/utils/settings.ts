@@ -20,6 +20,7 @@ export interface FileConfig {
 	hideSort: boolean;
 	hideGroup: boolean;
 	hideViews: boolean;
+	hideShortcuts: boolean;
 	enableCustomViewStyle: boolean;
 }
 
@@ -39,6 +40,7 @@ export const DEFAULT_FILE_CONFIG: FileConfig = {
 	hideSort: false,
 	hideGroup: false,
 	hideViews: false,
+	hideShortcuts: false,
 	enableCustomViewStyle: false,
 };
 

@@ -22,6 +22,7 @@ describe('mergeSettings', () => {
 		// Defaults filled in for unspecified keys
 		expect(cfg.hideFilter).toBe(false);
 		expect(cfg.hideSort).toBe(false);
+		expect(cfg.hideShortcuts).toBe(false);
 		expect(cfg.enableDefault).toBe(false);
 		expect(cfg.defaultPosition).toBe('left');
 		expect(cfg.defaultViewName).toBe('Main view');

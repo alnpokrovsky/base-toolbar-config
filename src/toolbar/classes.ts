@@ -11,6 +11,7 @@ export const HIDE_TOKEN_TO_CLASS: Record<string, string> = {
     group: 'bth-hide-group',
     views: 'bth-hide-views',
     'result-count': 'bth-hide-result-count',
+    shortcuts: 'bth-hide-shortcuts',
 };
 
 export const ALL_HIDE_CLASSES: string[] = Object.values(HIDE_TOKEN_TO_CLASS);

@@ -70,6 +70,7 @@ views:
 | `sort`         | Меню сортировки               |
 | `group`        | Меню группировки              |
 | `views`        | Меню переключения видов       |
+| `shortcuts`    | Кнопка «Сочетания клавиш» (TaskNotes) |
 
 ### Встроенные базы
 
@@ -109,7 +110,7 @@ views:
 - `.my-base-btns-container` — обёртка для вставленных кнопок
 - `.my-base-btn` — отдельная кастомная кнопка
 - `.bvs-text-mode` — применяется, когда кнопка показывает текст
-- `.bth-hide-<token>` — навешивается на контейнер, когда кнопку нужно скрыть (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`)
+- `.bth-hide-<token>` — навешивается на контейнер, когда кнопку нужно скрыть (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`, `shortcuts`)
 - `.bvs-hide-<token>` — legacy-алиасы для обратной совместимости
 
 ## Требования

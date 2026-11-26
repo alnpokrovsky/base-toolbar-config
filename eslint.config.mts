@@ -29,6 +29,7 @@ export default defineConfig(
 			'test/utils/i18n.test.ts',
 			'test/utils/path.test.ts',
 			'test/utils/settings.test.ts',
+			'test/toolbar/classes.test.ts',
 		],
 				},
 				tsconfigRootDir: import.meta.dirname,

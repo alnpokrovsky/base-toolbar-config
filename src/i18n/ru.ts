@@ -16,6 +16,7 @@ export const ru: Resource = {
   "interface.hideSort": 'Скрыть кнопку "Сортировка"',
   "interface.hideGroup": 'Скрыть кнопку "Группа"',
   "interface.hideViews": 'Скрыть кнопку "Представления"',
+  "interface.hideShortcuts": 'Скрыть кнопку "Сочетания клавиш"',
 
   "defaultButton.title": "🏠 Кнопка по умолчанию",
   "defaultButton.enable": "Включить кнопку по умолчанию",
