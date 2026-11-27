@@ -55,6 +55,16 @@
     display: none;
 }
 
+.workspace-leaf .bth-hide-new .bases-toolbar-item.bases-toolbar-new-item-menu,
+.bth-hide-new .bases-toolbar-item.bases-toolbar-new-item-menu {
+    display: none;
+}
+
+.workspace-leaf .bth-hide-new .tn-bases-new-task-btn,
+.bth-hide-new .tn-bases-new-task-btn {
+    display: none;
+}
+
 /* ==========================================================================
    2. Custom view-switcher buttons
    ========================================================================== */

@@ -116,6 +116,7 @@ export class BaseToolbarConfigSettingTab extends PluginSettingTab {
                 this.toggleDef(t("interface.hideViews"), 'hideViews', null, config, false),
                 this.toggleDef(t("interface.hideShortcuts"), 'hideShortcuts', null, config, false),
                 this.toggleDef(t("interface.hideMore"), 'hideMore', null, config, false),
+                this.toggleDef(t("interface.hideNew"), 'hideNew', null, config, false),
             ]
         });
 

@@ -61,17 +61,18 @@ Both mechanisms work as a **union**: a button is hidden if it's listed in `toolb
 
 #### Supported tokens
 
-| Token          | Hides                      |
-| -------------- | -------------------------- |
-| `result-count` | The "X results" counter    |
-| `search`       | The search button          |
-| `properties`   | The properties menu        |
-| `filter`       | The filter menu            |
-| `sort`         | The sort menu              |
-| `group`        | The group menu             |
-| `views`        | The view switcher menu     |
-| `shortcuts`    | The "Keyboard shortcuts" help button (TaskNotes) |
-| `more`         | The "More actions" overflow button (TaskNotes) |
+| Token          | Hides                                                    |
+| -------------- | -------------------------------------------------------- |
+| `result-count` | The "X results" counter                                  |
+| `search`       | The search button                                        |
+| `properties`   | The properties menu                                      |
+| `filter`       | The filter menu                                          |
+| `sort`         | The sort menu                                            |
+| `group`        | The group menu                                           |
+| `views`        | The view switcher menu                                   |
+| `shortcuts`    | The "Keyboard shortcuts" help button (TaskNotes)         |
+| `more`         | The "More actions" overflow button (TaskNotes)           |
+| `new`          | The "New" button (both native Bases and TaskNotes)       |
 
 ### Embeds
 
@@ -84,6 +85,21 @@ The same `toolbar.hide` rules apply to bases embedded inside notes:
 The plugin resolves the embed's `src` attribute to an actual `.base` file (including `folder/file.base` paths, `#anchor` suffixes and `|alias` forms) and applies the file's configuration to the embed.
 
 > **Note:** Bases created as inline ```` ```base ```` code blocks are **not** affected — they aren't tied to a specific `.base` file, so there is no configuration to read.
+
+#### Per-embed hide directives
+
+You can override which buttons are hidden for a **specific embed instance** by adding `hide-<token>` directives to the embed's alias (the part after `|`). This lets you hide buttons in one embed while keeping them visible in another embed of the same `.base` file.
+
+```markdown
+![[projects.base|hide-new]]
+![[projects.base|hide-search, hide-more]]
+![[projects.base|My View hide-new hide-shortcuts]]
+```
+
+- Directives are case-insensitive and separated by spaces or commas.
+- The `hide-` prefix is required; the suffix must be one of the supported tokens above (`search`, `filter`, `sort`, `properties`, `group`, `views`, `result-count`, `shortcuts`, `more`, `new`).
+- Unknown directives are silently ignored.
+- Per-embed directives **add** to the settings and YAML config (union semantics): a button is hidden if it's hidden by any of the three sources.
 
 ### Custom view-switcher buttons
 
@@ -111,7 +127,7 @@ If you want to override the plugin's own styles, use the following classes:
 - `.my-base-btns-container` — wrapper for injected buttons
 - `.my-base-btn` — a single custom button
 - `.bvs-text-mode` — applied when the button shows text
-- `.bth-hide-<token>` — applied to the container when a button should be hidden (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`, `shortcuts`, `more`)
+- `.bth-hide-<token>` — applied to the container when a button should be hidden (`search`, `filter`, `sort`, `properties`, `result-count`, `group`, `views`, `shortcuts`, `more`, `new`)
 - `.bvs-hide-<token>` — legacy aliases kept for backwards compatibility
 
 ## Requirements

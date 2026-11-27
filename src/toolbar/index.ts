@@ -8,6 +8,7 @@ import { t } from '../i18n';
 import { BaseToolbarConfigPlugin } from '../main';
 import { FileConfig } from '../utils/settings';
 import { parseBaseFile } from '../utils/yaml';
+import { extractHideDirectives } from '../utils/embed-directives';
 import { ALL_HIDE_CLASSES, HIDE_TOKEN_TO_CLASS } from './classes';
 
 type CustomBaseView = View & { file?: TFile };
@@ -26,6 +27,7 @@ export function applyConfigHideClasses(el: HTMLElement, config: FileConfig): voi
     el.classList.toggle('bth-hide-result-count', config.hideResultCount);
     el.classList.toggle('bth-hide-shortcuts', config.hideShortcuts);
     el.classList.toggle('bth-hide-more', config.hideMore);
+    el.classList.toggle('bth-hide-new', config.hideNew);
 }
 
 export function hideTokensToClasses(el: HTMLElement, tokens: string[]): void {
@@ -175,6 +177,9 @@ export async function processEmbeddedBases(plugin: BaseToolbarConfigPlugin): Pro
             embed.getAttribute('data-path') ??
             embed.getAttribute('data-href');
 
+        // Alias/alt text may contain hide-* directives: `file.base|hide-new hide-search`
+        const alt = embed.getAttribute('alt') ?? '';
+
         if (!src) continue;
 
         const filePath = resolveEmbedPath(plugin.app, src);
@@ -194,6 +199,10 @@ export async function processEmbeddedBases(plugin: BaseToolbarConfigPlugin): Pro
         // Async part: YAML-driven `toolbar.hide` (cached after first read).
         const parsed = await parseBaseFile(plugin.app.vault, plugin.baseFileCache, filePath);
         hideTokensToClasses(embed, parsed.hide);
+
+        // Per-embed directives from alias/alt (e.g., `![[view.base|hide-new]]`).
+        const directiveTokens = extractHideDirectives(src + '|' + alt);
+        hideTokensToClasses(embed, directiveTokens);
     }
 }
 

@@ -17,12 +17,16 @@ describe('toolbar/classes', () => {
 		expect(HIDE_TOKEN_TO_CLASS.more).toBe('bth-hide-more');
 	});
 
+	it('contains the new token for New button (Bases + TaskNotes)', () => {
+		expect(HIDE_TOKEN_TO_CLASS.new).toBe('bth-hide-new');
+	});
+
 	it('ALL_HIDE_CLASSES is derived from HIDE_TOKEN_TO_CLASS values', () => {
 		expect(ALL_HIDE_CLASSES).toEqual(Object.values(HIDE_TOKEN_TO_CLASS));
 	});
 
 	it('has the expected number of tokens', () => {
-		// 7 original + 1 shortcuts + 1 more = 9
-		expect(Object.keys(HIDE_TOKEN_TO_CLASS)).toHaveLength(9);
+		// 7 original + 1 shortcuts + 1 more + 1 new = 10
+		expect(Object.keys(HIDE_TOKEN_TO_CLASS)).toHaveLength(10);
 	});
 });
